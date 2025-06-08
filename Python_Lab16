@@ -1,0 +1,125 @@
+import json
+from datetime import datetime
+
+# Клас автора
+class Author:
+    def __init__(self, name):
+        self.name = name
+
+# Клас книги
+class Book:
+    def __init__(self, title, author):
+        self.title = title
+        self.author = author
+        self.borrow_count = 0
+
+# Клас запису про видачу
+class BorrowRecord:
+    def __init__(self, book, borrower, borrow_date):
+        self.book = book
+        self.borrower = borrower
+        self.borrow_date = borrow_date
+        self.return_date = None
+
+    def return_book(self):
+        self.return_date = datetime.now()
+
+    def is_returned(self):
+        return self.return_date is not None
+
+    def reading_time(self):
+        if self.return_date:
+            return (self.return_date - self.borrow_date).days
+        return None
+
+# Клас бібліотеки
+class Library:
+    def __init__(self):
+        self.books = []
+        self.borrow_records = []
+
+    def add_book(self, book):
+        self.books.append(book)
+
+    def remove_book(self, title):
+        self.books = [book for book in self.books if book.title != title]
+
+    def search_books(self, keyword):
+        return [book for book in self.books if keyword.lower() in book.title.lower() or keyword.lower() in book.author.name.lower()]
+
+    def borrow_book(self, title, borrower):
+        for book in self.books:
+            if book.title == title:
+                book.borrow_count += 1
+                record = BorrowRecord(book, borrower, datetime.now())
+                self.borrow_records.append(record)
+                print(f"Книга '{title}' видана {borrower}.")
+                return
+        print(f"Книгу '{title}' не знайдено.")
+
+    def return_book(self, title, borrower):
+        for record in self.borrow_records:
+            if record.book.title == title and record.borrower == borrower and not record.is_returned():
+                record.return_book()
+                print(f"Книга '{title}' повернена {borrower}.")
+                return
+        print(f"Запис про видачу книги '{title}' не знайдено.")
+
+    def generate_statistics(self):
+        stats = {}
+        for book in self.books:
+            times_borrowed = book.borrow_count
+            return_count = len([r for r in self.borrow_records if r.book.title == book.title and r.is_returned()])
+            total_reading_time = sum(r.reading_time() for r in self.borrow_records if r.book.title == book.title and r.reading_time() is not None)
+            reading_sessions = len([r for r in self.borrow_records if r.book.title == book.title and r.reading_time() is not None])
+            avg_reading_time = total_reading_time / reading_sessions if reading_sessions else 0
+
+            stats[book.title] = {
+                "author": book.author.name,
+                "times_borrowed": times_borrowed,
+                "return_percentage": (return_count / times_borrowed * 100) if times_borrowed else 0,
+                "avg_reading_days": avg_reading_time
+            }
+        return stats
+
+    def export_statistics_json(self, filename):
+        stats = self.generate_statistics()
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(stats, f, ensure_ascii=False, indent=4)
+        print(f"Статистика збережена у файл {filename}")
+
+# === Приклад використання ===
+
+# Ініціалізація бібліотеки
+library = Library()
+
+# Автори
+author1 = Author("Тарас Шевченко")
+author2 = Author("Леся Українка")
+author3 = Author("Іван Франко")
+
+# Книги
+book1 = Book("Кобзар", author1)
+book2 = Book("Лісова пісня", author2)
+book3 = Book("Захар Беркут", author3)
+
+# Додавання книг до бібліотеки
+library.add_book(book1)
+library.add_book(book2)
+library.add_book(book3)
+
+# Видача та повернення книг різними користувачами
+library.borrow_book("Кобзар", "Іван")
+library.return_book("Кобзар", "Іван")
+
+library.borrow_book("Лісова пісня", "Олена")
+library.return_book("Лісова пісня", "Олена")
+
+library.borrow_book("Захар Беркут", "Андрій")
+library.return_book("Захар Беркут", "Андрій")
+
+library.borrow_book("Кобзар", "Марія")
+library.return_book("Кобзар", "Марія")
+
+# Експорт статистики у JSON
+library.export_statistics_json("statistics.json")
